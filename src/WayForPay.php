@@ -1,18 +1,22 @@
 <?php
 
+namespace StudioSold\WayForPay;
+
 /**
  * Class WayForPay
  */
 class WayForPay
 {
-    const PURCHASE_URL      = 'https://secure.wayforpay.com/pay';
-    const API_URL           = 'https://api.wayforpay.com/api';
-    const WIDGET_URL        = 'https://secure.wayforpay.com/server/pay-widget.js';
-    const FIELDS_DELIMITER  = ';';
-    const API_VERSION       = 1;
-    const DEFAULT_CHARSET   = 'utf8';
+    const PURCHASE_URL     = 'https://secure.wayforpay.com/pay';
+    const REGULAR_URL      = 'https://api.wayforpay.com/regularApi';
+    const API_URL          = 'https://api.wayforpay.com/api';
+    const WIDGET_URL       = 'https://secure.wayforpay.com/server/pay-widget.js';
+    const FIELDS_DELIMITER = ';';
+    const API_VERSION      = 1;
+    const DEFAULT_CHARSET  = 'utf8';
 
     const MODE_PURCHASE         = 'PURCHASE';
+    const MODE_REGULAR          = 'REGULAR';
     const MODE_SETTLE           = 'SETTLE';
     const MODE_CHARGE           = 'CHARGE';
     const MODE_REFUND           = 'REFUND';
@@ -31,19 +35,20 @@ class WayForPay
     /**
      * Init
      *
-     * @param $merchant_account
-     * @param $merchant_password
+     * @param string $merchant_account
+     * @param string $merchant_password
      * @param string $charset
-     * @throws InvalidArgumentException
+     *
+     * @throws \InvalidArgumentException
      */
     public function __construct($merchant_account, $merchant_password, $charset = self::DEFAULT_CHARSET)
     {
         if (!is_string($merchant_account) || $merchant_account === '') {
-            throw new InvalidArgumentException('Merchant account must be string and not empty');
+            throw new \InvalidArgumentException('Merchant account must be string and not empty');
         }
 
         if (!is_string($merchant_password) || $merchant_password === '') {
-            throw new InvalidArgumentException('Merchant password must be string and not empty');
+            throw new \InvalidArgumentException('Merchant password must be string and not empty');
         }
 
         $this->_merchant_account = $merchant_account;
@@ -54,96 +59,126 @@ class WayForPay
     /**
      * MODE_SETTLE
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function settle($fields)
     {
         $this->_prepare(self::MODE_SETTLE, $fields);
+
+        return $this->_query();
+    }
+
+    /**
+     * MODE_REGULAR
+     *
+     * @param array $fields
+     *
+     * @return mixed
+     */
+    public function regular($fields)
+    {
+        $this->_prepare(self::MODE_REGULAR, $fields);
+
         return $this->_query();
     }
 
     /**
      * MODE_CHARGE
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function charge($fields)
     {
         $this->_prepare(self::MODE_CHARGE, $fields);
+
         return $this->_query();
     }
 
     /**
      * MODE_REFUND
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function refund($fields)
     {
         $this->_prepare(self::MODE_REFUND, $fields);
+
         return $this->_query();
     }
 
     /**
      * MODE_CHECK_STATUS
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function checkStatus($fields)
     {
         $this->_prepare(self::MODE_CHECK_STATUS, $fields);
+
         return $this->_query();
     }
 
     /**
      * MODE_P2P_CREDIT
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function account2card($fields)
     {
         $this->_prepare(self::MODE_P2P_CREDIT, $fields);
+
         return $this->_query();
     }
 
     /**
      * MODE_P2P_CREDIT
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function createInvoice($fields)
     {
         $this->_prepare(self::MODE_CREATE_INVOICE, $fields);
+
         return $this->_query();
     }
 
     /**
      * MODE_P2P_CREDIT
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function account2phone($fields)
     {
         $this->_prepare(self::MODE_P2_PHONE, $fields);
+
         return $this->_query();
     }
 
     /**
      * TRANSACTION_LIST
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return mixed
      */
     public function transactionList($fields)
     {
         $this->_prepare(self::MODE_TRANSACTION_LIST, $fields);
+
         return $this->_query();
     }
 
@@ -151,7 +186,8 @@ class WayForPay
      * MODE_PURCHASE
      * Generate html form
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return string
      */
     public function buildForm($fields)
@@ -163,7 +199,8 @@ class WayForPay
         foreach ($this->_params as $key => $value) {
             if (is_array($value)) {
                 foreach ($value as $field) {
-                    $form .= sprintf('<input type="hidden" name="%s" value="%s" />', $key . '[]', htmlspecialchars($field));
+                    $form .= sprintf('<input type="hidden" name="%s" value="%s" />', $key . '[]',
+                        htmlspecialchars($field));
                 }
             } else {
                 $form .= sprintf('<input type="hidden" name="%s" value="%s" />', $key, htmlspecialchars($value));
@@ -180,19 +217,23 @@ class WayForPay
      * If GET redirect is used to redirect to purchase form, i.e.
      * https://secure.wayforpay.com/pay/get?merchantAccount=test_merch_n1&merchantDomainName=domain.ua&merchantSignature=c6d08855677ec6beca68e292b2c3c6ae&orderReference=RG3656-1430373125&orderDate=1430373125&amount=0.16&currency=UAH&productName=Saturn%20BUE%201.2&productPrice=0.16&productCount=1&language=RU
      *
-     * @param $fields
+     * @param array $fields
+     *
      * @return string
      */
-    public function generatePurchaseUrl($fields) {
+    public function generatePurchaseUrl($fields)
+    {
         $this->_prepare(self::MODE_PURCHASE, $fields);
-        return self::PURCHASE_URL.'/get?'.http_build_query($this->_params);
+
+        return self::PURCHASE_URL . '/get?' . http_build_query($this->_params);
     }
 
     /**
      * Return signature hash
      *
-     * @param $action
-     * @param $fields
+     * @param       $action
+     * @param array $fields
+     *
      * @return mixed
      */
     public function createSignature($action, $fields)
@@ -203,24 +244,34 @@ class WayForPay
     }
 
     /**
-     * @param $action
+     * @param       $action
      * @param array $params
-     * @throws InvalidArgumentException
+     *
+     * @throws \InvalidArgumentException
      */
     private function _prepare($action, array $params)
     {
         $this->_action = $action;
 
-        if(empty($params)){
-            throw new InvalidArgumentException('Arguments must be not empty');
+        if (empty($params)) {
+            throw new \InvalidArgumentException('Arguments must be not empty');
         }
 
-        $this->_params = $params;
-        $this->_params['transactionType'] = $this->_action;
-        $this->_params['merchantAccount'] = $this->_merchant_account;
-        $this->_params['merchantSignature'] = $this->_buildSignature();
+        if ($action === self::MODE_REGULAR) {
+            $this->_params = $params;
+            $this->_params['requestType'] = 'CREATE';
+            $this->_params['merchantAccount'] = $this->_merchant_account;
+            $this->_params['merchantPassword'] = $this->_merchant_password;
+        } else {
+            $this->_params = $params;
+            $this->_params['transactionType'] = $this->_action;
+            $this->_params['merchantAccount'] = $this->_merchant_account;
+            $this->_params['merchantSignature'] = $this->_buildSignature();
 
-        if ($this->_action !== self::MODE_PURCHASE) $this->_params['apiVersion'] = self::API_VERSION;
+            if ($this->_action !== self::MODE_PURCHASE) {
+                $this->_params['apiVersion'] = self::API_VERSION;
+            }
+        }
 
         $this->_checkFields();
 
@@ -229,9 +280,8 @@ class WayForPay
     /**
      * Check required fields
      *
-     * @param $fields
      * @return bool
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     private function _checkFields()
     {
@@ -249,7 +299,7 @@ class WayForPay
         }
 
         if (!empty($error)) {
-            throw new InvalidArgumentException('Missed required field(s): ' . implode(', ', $error) . '.');
+            throw new \InvalidArgumentException('Missed required field(s): ' . implode(', ', $error) . '.');
         }
 
         return true;
@@ -258,9 +308,8 @@ class WayForPay
     /**
      * Generate signature hash
      *
-     * @param $fields
      * @return string
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     private function _buildSignature()
     {
@@ -274,21 +323,21 @@ class WayForPay
                 if (is_array($value)) {
                     $data[] = implode(self::FIELDS_DELIMITER, $value);
                 } else {
-                    $data[] = (string) $value;
+                    $data[] = (string)$value;
                 }
             } else {
                 $error[] = $item;
             }
         }
 
-        if ( $this->_charset != self::DEFAULT_CHARSET) {
-            foreach($data as $key => $value) {
+        if ($this->_charset != self::DEFAULT_CHARSET) {
+            foreach ($data as $key => $value) {
                 $data[$key] = iconv($this->_charset, self::DEFAULT_CHARSET, $data[$key]);
             }
         }
 
         if (!empty($error)) {
-            throw new InvalidArgumentException('Missed signature field(s): ' . implode(', ', $error) . '.');
+            throw new \InvalidArgumentException('Missed signature field(s): ' . implode(', ', $error) . '.');
         }
 
         return hash_hmac('md5', implode(self::FIELDS_DELIMITER, $data), $this->_merchant_password);
@@ -302,13 +351,15 @@ class WayForPay
     {
         $fields = json_encode($this->_params);
 
+        $url = $this->_action === self::MODE_REGULAR ? self::REGULAR_URL : self::API_URL;
+
         $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, self::API_URL);
+        curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json;charset=utf-8'));
         curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS,$fields);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         $response = curl_exec($ch);
         curl_close($ch);
 
@@ -320,7 +371,7 @@ class WayForPay
      * Signature fields
      *
      * @return array
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     private function _getFieldsNameForSignature()
     {
@@ -394,7 +445,7 @@ class WayForPay
                 );
                 break;
             default:
-                throw new InvalidArgumentException('Unknown transaction type: '.$this->_action);
+                throw new \InvalidArgumentException('Unknown transaction type: ' . $this->_action);
         }
     }
 
@@ -406,6 +457,17 @@ class WayForPay
     private function _getRequiredFields()
     {
         switch ($this->_action) {
+            case 'REGULAR':
+                return array(
+                    'requestType',
+                    'merchantAccount',
+                    'merchantPassword',
+                    'amount',
+                    'currency',
+                    'dateBegin',
+                    'dateEnd',
+                    'orderReference',
+                );
             case 'PURCHASE':
                 return array(
                     'merchantAccount',
@@ -511,33 +573,34 @@ class WayForPay
                 );
                 break;
             default:
-                throw new InvalidArgumentException('Unknown transaction type');
+                throw new \InvalidArgumentException('Unknown transaction type');
         }
     }
 
     /**
-     * @param array $fields Widget(https://wiki.wayforpay.com/pages/viewpage.action?pageId=852091)
-     * @param null $callbackFunction JavaScript callback function called on widget response
+     * @param array $fields           Widget(https://wiki.wayforpay.com/pages/viewpage.action?pageId=852091)
+     * @param null  $callbackFunction JavaScript callback function called on widget response
+     *
      * @return string
      */
     public function buildWidgetButton(array $fields, $callbackFunction = null)
     {
         $this->_prepare(self::MODE_PURCHASE, $fields);
 
-        $button = '<script id="widget-wfp-script" language="javascript" type="text/javascript" src="'. self::WIDGET_URL .'"></script>
+        $button = '<script id="widget-wfp-script" language="javascript" type="text/javascript" src="' . self::WIDGET_URL . '"></script>
         <script type="text/javascript">
             var wayforpay = new Wayforpay();
             var pay = function () {
             wayforpay.run(' . json_encode($this->_params) . ');
             }
-            window.addEventListener("message", '. ($callbackFunction ? $callbackFunction : "receiveMessage").');
+            window.addEventListener("message", ' . ($callbackFunction ? $callbackFunction : "receiveMessage") . ');
             function receiveMessage(event)
             {
                 if(
-                    event.data == "WfpWidgetEventClose" ||      //при закрытии виджета пользователем
-                    event.data == "WfpWidgetEventApproved" ||   //при успешном завершении операции
-                    event.data == "WfpWidgetEventDeclined" ||   //при неуспешном завершении
-                    event.data == "WfpWidgetEventPending")      // транзакция на обработке
+                    event.data === "WfpWidgetEventClose" ||      //при закрытии виджета пользователем
+                    event.data === "WfpWidgetEventApproved" ||   //при успешном завершении операции
+                    event.data === "WfpWidgetEventDeclined" ||   //при неуспешном завершении
+                    event.data === "WfpWidgetEventPending")      // транзакция на обработке
                 {
                     console.log(event.data);
                 }

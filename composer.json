@@ -1,6 +1,15 @@
 {
-    "name": "wayforpay/php",
+    "name": "s-belichenko-sold/wayforpay-php",
     "description": "Wayforpay PHP API",
     "license": "MIT",
-    "require": {}
+    "require": {
+        "ext-curl": "*",
+        "ext-iconv": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "StudioSold\\WayForPay\\": "src/"
+        }
+    }
 }
